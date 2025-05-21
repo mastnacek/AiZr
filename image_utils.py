@@ -1,24 +1,74 @@
 import os
-import shutil # Included as per requirement, though not used in find_images example
+import shutil
 import base64
 from PIL import Image
-from config import console # For logging within these utility functions
+from config import console, MAX_SIZE, CACHE_FOLDER # TEMP_FOLDER no longer needed here for resize_image
 
-def resize_image(image_path, output_path, size=(1024, 1024)):
-    """Resizes an image to a given size."""
+# Moved from main.py
+def get_mime_type(image_path: str) -> str:
+    ext = os.path.splitext(image_path)[1].lower()
+    if ext == ".jpg" or ext == ".jpeg":
+        return "image/jpeg"
+    elif ext == ".png":
+        return "image/png"
+    elif ext == ".gif":
+        return "image/gif"
+    return "application/octet-stream" # Default
+
+def resize_image(image_path: str) -> str:
+    """
+    Resizes an image if it's larger than MAX_SIZE, using caching.
+    Returns path to the (potentially) resized image in CACHE_FOLDER, 
+    or original image_path on error.
+    """
     try:
-        img = Image.open(image_path)
-        img = img.resize(size, Image.Resampling.LANCZOS)
-        img.save(output_path)
-        console.print(f"Image resized: {image_path} -> {output_path} to {size}")
-        return True
-    except Exception as e:
-        console.print(f"[bold red]Error resizing image {image_path}: {e}[/bold red]")
-        return False
+        if not os.path.exists(CACHE_FOLDER):
+            os.makedirs(CACHE_FOLDER, exist_ok=True)
+            console.print(f"Vytvořena složka CACHE_FOLDER: '{CACHE_FOLDER}'")
 
-def find_images(folder_path, extensions=('.jpg', '.jpeg', '.png', '.gif')):
+        image_filename = os.path.basename(image_path)
+        cache_path = os.path.join(CACHE_FOLDER, image_filename)
+
+        if os.path.exists(cache_path):
+            console.print(f"Použit cachovaný obrázek: '{cache_path}'")
+            return cache_path
+
+        img = Image.open(image_path)
+        width, height = img.size
+
+        if width <= MAX_SIZE and height <= MAX_SIZE:
+            console.print(f"Obrázek '{image_filename}' není třeba zmenšovat. Kopíruji do cache.")
+            shutil.copy2(image_path, cache_path)
+            return cache_path
+
+        console.print(f"Zmenšuji obrázek '{image_filename}' (rozměry: {width}x{height})...")
+        if width > height:
+            new_width = MAX_SIZE
+            new_height = int((height / width) * MAX_SIZE)
+        else:
+            new_height = MAX_SIZE
+            new_width = int((width / height) * MAX_SIZE)
+
+        resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+        if resized_img.mode == 'RGBA' and cache_path.lower().endswith(('.jpg', '.jpeg')):
+            console.print(f"Převádím RGBA na RGB pro '{cache_path}'")
+            resized_img = resized_img.convert('RGB')
+
+        resized_img.save(cache_path)
+        console.print(f"Zmenšený obrázek uložen do '{cache_path}'")
+        return cache_path
+
+    except FileNotFoundError:
+        console.print(f"[bold red]Chyba při změně velikosti: Soubor nenalezen '{image_path}'. Vracím původní cestu.[/bold red]")
+        return image_path
+    except Exception as e:
+        console.print(f"[bold red]Chyba při změně velikosti obrázku '{image_path}': {e}. Vracím původní cestu.[/bold red]")
+        return image_path
+
+def find_images(folder_path: str, extensions=('.jpg', '.jpeg', '.png', '.gif')) -> list[str]:
     """Finds all images with given extensions in a folder."""
-    image_files = []
+    image_files: list[str] = []
     for root, _, files in os.walk(folder_path):
         for file in files:
             if file.lower().endswith(extensions):
@@ -26,11 +76,22 @@ def find_images(folder_path, extensions=('.jpg', '.jpeg', '.png', '.gif')):
     console.print(f"Found {len(image_files)} images in {folder_path}")
     return image_files
 
-def encode_image(image_path):
-    """Encodes an image to a base64 string."""
+def encode_image(image_path: str) -> tuple[str | None, str | None]:
+    """
+    Encodes an image to a base64 string and determines its MIME type.
+    Returns (base64_string, mime_type) or (None, None) if an error occurs.
+    """
+    if not image_path or not os.path.exists(image_path): # Check if image_path is valid
+        console.print(f"[bold red]Error encoding image: File not found or path is invalid {image_path}[/bold red]")
+        return None, None
     try:
+        mime_type = get_mime_type(image_path)
         with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
+            b64_string = base64.b64encode(image_file.read()).decode('utf-8')
+        return b64_string, mime_type
+    except FileNotFoundError: # Should be caught by os.path.exists, but good for robustness
+        console.print(f"[bold red]Error encoding image: File not found {image_path}[/bold red]")
+        return None, None
     except Exception as e:
         console.print(f"[bold red]Error encoding image {image_path}: {e}[/bold red]")
-        return None
+        return None, None
