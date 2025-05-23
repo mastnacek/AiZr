@@ -384,9 +384,11 @@ def spravuj_nastaveni() -> None:
     global providers_registry
 
     while True:
-        console.print("\n┌" + "─" * 45 + "┐", style="menu_title")
-        console.print(f"│ [menu_title]Menu Nastavení[/menu_title]                               │")
-        console.print("├" + "─" * 45 + "┤", style="menu_title")
+        # Zvětšíme šířku boxu pro menu nastavení
+        settings_menu_width = 55 
+        console.print("\n┌" + "─" * settings_menu_width + "┐", style="menu_title")
+        console.print(f"│ [menu_title]{'Menu Nastavení':^{settings_menu_width -2}}[/menu_title] │")
+        console.print("├" + "─" * settings_menu_width + "┤", style="menu_title")
         
         # Uvnitř while True v spravuj_nastaveni(), při sestavování zobrazení menu
         current_provider_id = app_settings.get('ai_provider_id', 'N/A')
@@ -410,16 +412,18 @@ def spravuj_nastaveni() -> None:
         console.print(f"│ [menu_key]3.[/menu_key] [menu_option]Max. velikost obr. (px)[/menu_option]: [info]{app_settings.get('max_image_size', 'N/A')}[/info]")
         console.print(f"│ [menu_key]4.[/menu_key] [menu_option]Rekurzivní hledání[/menu_option]: [info]{'Ano' if app_settings.get('recursive_search') else 'Ne'}[/info]")
         console.print(f"│ [menu_key]5.[/menu_key] [menu_option]Zdrojová složka[/menu_option]: [path]{app_settings.get('input_folder', 'N/A')}[/path]")
-        console.print(f"│ [menu_key]6.[/menu_key] [menu_option]Výstupní složka (kategorie)[/menu_option]: [path]{app_settings.get('categories_folder', 'N/A')}[/path]")
-        console.print(f"│ [menu_key]7.[/menu_key] [menu_option]Složka pro cache[/menu_option]: [path]{app_settings.get('cache_folder', 'N/A')}[/path]")
-        console.print(f"│ [menu_key]8.[/menu_key] [menu_option]Teplota (AI model)[/menu_option]: [info]{app_settings.get('temperature', 'N/A')}[/info]")
-        console.print("├" + "─" * 45 + "┤", style="menu_title")
-        console.print(f"│ [menu_key]q.[/menu_key] [menu_option]Zpět do hlavního menu[/menu_option]                      │")
-        console.print("└" + "─" * 45 + "┘", style="menu_title")
+        console.print(f"│ [menu_key]6.[/menu_key] [menu_option]{'Výstupní složka (kategorie)':<30}[/menu_option]: [path]{app_settings.get('categories_folder', 'N/A'):<15}[/path] │")
+        console.print(f"│ [menu_key]7.[/menu_key] [menu_option]{'Složka pro cache':<30}[/menu_option]: [path]{app_settings.get('cache_folder', 'N/A'):<15}[/path] │")
+        console.print(f"│ [menu_key]8.[/menu_key] [menu_option]{'Teplota (AI model)':<30}[/menu_option]: [info]{app_settings.get('temperature', 'N/A'):<15}[/info] │")
+        console.print(f"│ [menu_key]9.[/menu_key] [menu_option]{'Cesta k souboru tagů':<30}[/menu_option]: [path]{app_settings.get('tags_file', 'N/A'):<15}[/path] │")
+        console.print(f"│ [menu_key]10[/menu_key] [menu_option]{'Cesta k výstup. JSON':<30}[/menu_option]: [path]{app_settings.get('output_file', 'N/A'):<15}[/path] │")
+        console.print("├" + "─" * settings_menu_width + "┤", style="menu_title")
+        console.print(f"│ [menu_key]q.[/menu_key] [menu_option]{'Zpět do hlavního menu':<{settings_menu_width - 6}}[/menu_option] │")
+        console.print("└" + "─" * settings_menu_width + "┘", style="menu_title")
 
         volba = Prompt.ask(
             "[prompt]Zadejte číslo položky pro změnu nebo 'q' pro návrat[/prompt]",
-            choices=['1', '2', '3', '4', '5', '6', '7', '8', 'q'],
+            choices=['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'q'], # Rozšířené choices
             default='q',
             show_default=False
         ).lower()
@@ -429,7 +433,7 @@ def spravuj_nastaveni() -> None:
             break
         
         try:
-            if volba == '1':
+            if volba == '1': # AI Provider
                 provider_ids = list(providers_registry.keys())
                 if not provider_ids:
                     console.print("[error]Nejsou dostupní žádní AI provideři.[/error]")
@@ -472,7 +476,7 @@ def spravuj_nastaveni() -> None:
                 else:
                     console.print(f"[warning]Pro providera '{selected_provider_id}' nebyl automaticky nastaven žádný model. Vyberte prosím model ručně (volba 2).[/warning]")
             
-            elif volba == '2':
+            elif volba == '2': # Model
                 current_provider_id = app_settings.get('ai_provider_id')
                 if not current_provider_id or not providers_registry.get(current_provider_id):
                     console.print("[error]Nejprve vyberte platného AI Providera (volba 1).[/error]")
@@ -486,17 +490,17 @@ def spravuj_nastaveni() -> None:
                 # Uvnitř if volba == '2', při vytváření Table
                 table = Table(title=f"Dostupné modely pro {provider.get_provider_name()}")
                 table.add_column("Klíč", style="menu_key", justify="right")
-                table.add_column("Název Modelu (ID)", style="menu_option", max_width=50) # Omezení šířky
+                table.add_column("Název Modelu (ID)", style="menu_option", max_width=50) 
                 table.add_column("Free", style="dim", width=6)
                 table.add_column("Context", style="dim", width=10)
-                table.add_column("Popis", style="dim", overflow="fold") # Zalamování popisu
+                table.add_column("Popis", style="dim", overflow="fold") 
                 
                 for i, model_data in enumerate(models):
                     is_free = "Ano" if model_data.get('free') else "Ne"
                     context = str(model_data.get('context_window', 'N/A'))
                     table.add_row(
                         str(i + 1), 
-                        f"{model_data['name']} \n([dim]{model_data['id']}[/dim])", # ID menším písmem
+                        f"{model_data['name']} \n([dim]{model_data['id']}[/dim])", 
                         is_free,
                         context,
                         model_data.get('description', '')
@@ -507,36 +511,45 @@ def spravuj_nastaveni() -> None:
                 app_settings['model_id'] = selected_model_id
                 app_settings[f"{current_provider_id}_model_id"] = selected_model_id
                 console.print(f"Model nastaven na: [success]{selected_model_id}[/success]")
-            elif volba == '3':
+            elif volba == '3': # Max. velikost obr. (px)
                 new_val_str = Prompt.ask(f"[prompt]Nová max. velikost (aktuální: {app_settings.get('max_image_size')})[/prompt]", default=str(app_settings.get('max_image_size')))
                 try:
                     new_val = int(new_val_str)
                     if new_val > 0: app_settings['max_image_size'] = new_val; console.print(f"Max. velikost nastavena: [success]{new_val}px[/success]")
                     else: console.print("[error]Velikost musí být kladné číslo.[/error]")
                 except ValueError: console.print("[error]Neplatný formát čísla.[/error]")
-            elif volba == '4':
+            elif volba == '4': # Rekurzivní hledání
                 current_val = app_settings.get('recursive_search', True)
                 app_settings['recursive_search'] = Confirm.ask(f"[prompt]Rekurzivní hledání (aktuální: {'Ano' if current_val else 'Ne'})[/prompt]", default=current_val)
                 console.print(f"Rekurzivní hledání: [success]{'Ano' if app_settings['recursive_search'] else 'Ne'}[/success]")
-            elif volba == '5':
+            elif volba == '5': # Zdrojová složka
                 new_val = Prompt.ask(f"[prompt]Nová zdrojová složka (aktuální: {app_settings.get('input_folder')})[/prompt]", default=app_settings.get('input_folder')).strip()
                 if new_val: app_settings['input_folder'] = new_val; console.print(f"Zdrojová složka: [path]{new_val}[/path]")
                 else: console.print("[warning]Cesta nesmí být prázdná.[/warning]")
-            elif volba == '6':
+            elif volba == '6': # Výstupní složka (kategorie)
                 new_val = Prompt.ask(f"[prompt]Nová výstupní složka (aktuální: {app_settings.get('categories_folder')})[/prompt]", default=app_settings.get('categories_folder')).strip()
                 if new_val: app_settings['categories_folder'] = new_val; console.print(f"Výstupní složka: [path]{new_val}[/path]")
                 else: console.print("[warning]Cesta nesmí být prázdná.[/warning]")
-            elif volba == '7':
+            elif volba == '7': # Složka pro cache
                 new_val = Prompt.ask(f"[prompt]Nová složka pro cache (aktuální: {app_settings.get('cache_folder')})[/prompt]", default=app_settings.get('cache_folder')).strip()
                 if new_val: app_settings['cache_folder'] = new_val; console.print(f"Složka pro cache: [path]{new_val}[/path]")
                 else: console.print("[warning]Cesta nesmí být prázdná.[/warning]")
-            elif volba == '8':
+            elif volba == '8': # Teplota (AI model)
                 new_val_str = Prompt.ask(f"[prompt]Nová teplota (0.0-2.0, aktuální: {app_settings.get('temperature')})[/prompt]", default=str(app_settings.get('temperature')))
                 try:
                     new_val = float(new_val_str)
                     if 0.0 <= new_val <= 2.0: app_settings['temperature'] = new_val; console.print(f"Teplota nastavena: [success]{new_val}[/success]")
                     else: console.print("[error]Teplota musí být mezi 0.0 a 2.0.[/error]")
                 except ValueError: console.print("[error]Neplatný formát čísla.[/error]")
+            elif volba == '9': # Cesta k souboru tagů
+                new_path = Prompt.ask(f"[prompt]Nová cesta k souboru tagů (aktuální: {app_settings.get('tags_file')})[/prompt]", default=app_settings.get('tags_file')).strip()
+                if new_path: app_settings['tags_file'] = new_path; console.print(f"Cesta k souboru tagů nastavena na: [path]{new_path}[/path]")
+                else: console.print("[warning]Cesta nesmí být prázdná.[/warning]")
+            elif volba == '10': # Cesta k výstupnímu JSON
+                new_path = Prompt.ask(f"[prompt]Nová cesta k výstupnímu JSON souboru (aktuální: {app_settings.get('output_file')})[/prompt]", default=app_settings.get('output_file')).strip()
+                if new_path: app_settings['output_file'] = new_path; console.print(f"Cesta k výstupnímu JSON nastavena na: [path]{new_path}[/path]")
+                else: console.print("[warning]Cesta nesmí být prázdná.[/warning]")
+
         except Exception as e:
             console.print(f"[bold red]Nastala chyba v menu nastavení: {e}[/bold red]")
 

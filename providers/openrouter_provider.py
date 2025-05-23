@@ -12,41 +12,68 @@ from config import console, OPENROUTER_API_KEY
 
 # Pomocná funkce pro extrakci JSON (původní z api_client.py)
 def extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
-    # Na začátku funkce extract_json_from_text
+    # Stávající logování vstupu
     if text:
         console.print(f"[OpenRouterProvider DEBUG extract_json_from_text input text (first 500 chars)]: {text[:500]}")
     else:
         console.print("[OpenRouterProvider DEBUG extract_json_from_text input text]: Prázdný vstup.")
-        return None # Pokud je text prázdný, nemá smysl pokračovat
-    
+        return None
+
+    json_str_match = None
     # Prioritize specific markdown block
-    match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
-    if not match:
+    match_md = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
+    if match_md:
+        json_str_match = match_md.group(1)
+    else:
         # Fallback to general JSON object search
-        match = re.search(r"(\{.*\})", text, re.DOTALL)
-    
-    if match:
-        json_str = match.group(1)
+        match_general = re.search(r"(\{.*\})", text, re.DOTALL)
+        if match_general:
+            json_str_match = match_general.group(1)
+
+    if json_str_match:
+        json_str = json_str_match.strip() # Odstranění bílých znaků kolem JSON bloku
+        console.print(f"[OpenRouterProvider DEBUG Extracted json_str (first 500 chars after strip)]: {json_str[:500]}")
         try:
             data = json.loads(json_str)
+            
+            # --- Nové detailní logování po json.loads() ---
+            console.print(f"[OpenRouterProvider DEBUG Parsed JSON type]: {type(data)}")
+            if isinstance(data, dict):
+                console.print(f"[OpenRouterProvider DEBUG Parsed JSON keys]: {list(data.keys())}")
+                if "kategorie" in data:
+                    console.print(f"[OpenRouterProvider DEBUG Type of 'kategorie' value]: {type(data['kategorie'])}")
+                    console.print(f"[OpenRouterProvider DEBUG Value of 'kategorie']: {data['kategorie']}")
+                    # Kontrola reprezentace klíčů
+                    console.print(f"[OpenRouterProvider DEBUG Keys comparison]:")
+                    for key_item in data.keys():
+                        console.print(f"  Key: '{repr(key_item)}', Type: {type(key_item)}, Matches 'kategorie': {key_item == 'kategorie'}")
+                else:
+                    console.print("[OpenRouterProvider DEBUG 'kategorie' key NOT FOUND in parsed JSON data]")
+            # --- Konec nového detailního logování ---
+
             if not isinstance(data, dict):
-                console.print(f"[red]extract_json_from_text: Naparsovaná data nejsou slovník: {type(data)}[/red]") # Odkomentováno
+                console.print(f"[red]extract_json_from_text: Naparsovaná data nejsou slovník: {type(data)}[/red]")
+                console.print(f"[OpenRouterProvider DEBUG Original text for non-dict data (first 500 chars)]: {text[:500]}")
                 return None
-            # Základní validace struktury - přítomnost klíče "kategorie" a že jeho hodnota je list
+            
+            # Stávající kontrola klíče "kategorie"
+            # Zde je podezření na problém, proto tolik logování výše
             if "kategorie" not in data or not isinstance(data.get("kategorie"), list):
-                console.print("[red]extract_json_from_text: JSON neobsahuje klíč 'kategorie' s listem hodnot.[/red]") 
+                console.print("[red]extract_json_from_text: JSON neobsahuje klíč 'kategorie' s listem hodnot (dle standardní kontroly).[/red]")
                 console.print(f"[OpenRouterProvider DEBUG Original text for missing 'kategorie' (first 500 chars)]: {text[:500]}")
                 return None
-            return data
+            
+            return data # Úspěšné parsování a validace
+
         except json.JSONDecodeError as e:
             error_snippet = json_str[:500] + "..." if len(json_str) > 500 else json_str
-            console.print(f"[red]extract_json_from_text: Chyba při parsování JSON: {e}[/red]") 
-            console.print(f"[red]extract_json_from_text: Problematický JSON string (začátek): {error_snippet}[/red]") 
+            console.print(f"[red]extract_json_from_text: Chyba při parsování JSON: {e}[/red]")
+            console.print(f"[red]extract_json_from_text: Problematický JSON string (začátek): {error_snippet}[/red]")
             console.print(f"[OpenRouterProvider DEBUG Original text that failed JSON parsing (first 500 chars)]: {text[:500]}")
             return None
     else:
-        # response_snippet = text[:500] + "..." if len(text) > 500 else text # Already handled by the initial log
-        console.print("[yellow]extract_json_from_text: JSON blok nenalezen v odpovědi API (ani ```json ani obecný {...}).[/yellow]") 
+        console.print("[yellow]extract_json_from_text: JSON blok nenalezen v odpovědi API.[/yellow]")
+        # Nyní se loguje celý vstupní text, pokud regex selže
         console.print(f"[OpenRouterProvider DEBUG Original text when no JSON block found (first 500 chars)]: {text[:500]}")
         return None
 
