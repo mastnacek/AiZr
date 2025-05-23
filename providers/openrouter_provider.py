@@ -12,9 +12,13 @@ from config import console, OPENROUTER_API_KEY
 
 # Pomocná funkce pro extrakci JSON (původní z api_client.py)
 def extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
-    if not text:
-        console.print("[yellow]extract_json_from_text: Prázdný vstupní text.[/yellow]") # Odkomentováno
-        return None
+    # Na začátku funkce extract_json_from_text
+    if text:
+        console.print(f"[OpenRouterProvider DEBUG extract_json_from_text input text (first 500 chars)]: {text[:500]}")
+    else:
+        console.print("[OpenRouterProvider DEBUG extract_json_from_text input text]: Prázdný vstup.")
+        return None # Pokud je text prázdný, nemá smysl pokračovat
+    
     # Prioritize specific markdown block
     match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
     if not match:
@@ -30,18 +34,20 @@ def extract_json_from_text(text: str) -> Optional[Dict[str, Any]]:
                 return None
             # Základní validace struktury - přítomnost klíče "kategorie" a že jeho hodnota je list
             if "kategorie" not in data or not isinstance(data.get("kategorie"), list):
-                console.print("[red]extract_json_from_text: JSON neobsahuje klíč 'kategorie' s listem hodnot.[/red]") # Odkomentováno
+                console.print("[red]extract_json_from_text: JSON neobsahuje klíč 'kategorie' s listem hodnot.[/red]") 
+                console.print(f"[OpenRouterProvider DEBUG Original text for missing 'kategorie' (first 500 chars)]: {text[:500]}")
                 return None
             return data
         except json.JSONDecodeError as e:
             error_snippet = json_str[:500] + "..." if len(json_str) > 500 else json_str
-            console.print(f"[red]extract_json_from_text: Chyba při parsování JSON: {e}[/red]") # Odkomentováno
-            console.print(f"[red]extract_json_from_text: Problematický JSON string (začátek): {error_snippet}[/red]") # Odkomentováno
+            console.print(f"[red]extract_json_from_text: Chyba při parsování JSON: {e}[/red]") 
+            console.print(f"[red]extract_json_from_text: Problematický JSON string (začátek): {error_snippet}[/red]") 
+            console.print(f"[OpenRouterProvider DEBUG Original text that failed JSON parsing (first 500 chars)]: {text[:500]}")
             return None
     else:
-        response_snippet = text[:500] + "..." if len(text) > 500 else text
-        console.print("[yellow]extract_json_from_text: JSON blok nenalezen v odpovědi API.[/yellow]") # Odkomentováno
-        console.print(f"[yellow]extract_json_from_text: Celá odpověď (začátek): {response_snippet}[/yellow]") # Odkomentováno
+        # response_snippet = text[:500] + "..." if len(text) > 500 else text # Already handled by the initial log
+        console.print("[yellow]extract_json_from_text: JSON blok nenalezen v odpovědi API (ani ```json ani obecný {...}).[/yellow]") 
+        console.print(f"[OpenRouterProvider DEBUG Original text when no JSON block found (first 500 chars)]: {text[:500]}")
         return None
 
 class OpenRouterProvider(AbstractAIProvider):
@@ -125,11 +131,16 @@ class OpenRouterProvider(AbstractAIProvider):
         try:
             response = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
             response.raise_for_status()
+            # Uvnitř classify_image, po response.raise_for_status()
+            # console.print(f"[OpenRouterProvider DEBUG Raw Success Response]: {response.text[:1000]}...") # Logování celé úspěšné odpovědi
             return response.text
         except requests.exceptions.RequestException as e:
             console.print(f"[bold red][OpenRouterProvider] Chyba při volání API: {e}[/bold red]")
             if e.response is not None:
+                console.print(f"[bold red][OpenRouterProvider] API Response Status: {e.response.status_code}[/bold red]")
                 console.print(f"[bold red][OpenRouterProvider] API Response Text (chyba): {e.response.text[:500]}[/bold red]")
+            else:
+                console.print(f"[bold red][OpenRouterProvider] Žádná odpověď od API (např. síťová chyba).[/bold red]")
             return None
 
     def parse_json_response(self, response_text: str) -> Optional[Dict[str, Any]]:
