@@ -66,14 +66,27 @@ def resize_image(image_path: str) -> str:
         console.print(f"[bold red]Chyba při změně velikosti obrázku '{image_path}': {e}. Vracím původní cestu.[/bold red]")
         return image_path
 
-def find_images(folder_path: str, extensions=('.jpg', '.jpeg', '.png', '.gif')) -> list[str]:
-    """Finds all images with given extensions in a folder."""
+def find_images(folder_path: str, extensions=('.jpg', '.jpeg', '.png', '.gif'), recursive: bool = True) -> list[str]:
     image_files: list[str] = []
-    for root, _, files in os.walk(folder_path):
-        for file in files:
-            if file.lower().endswith(extensions):
-                image_files.append(os.path.join(root, file))
-    console.print(f"Found {len(image_files)} images in {folder_path}")
+    if not os.path.isdir(folder_path):
+        # Předpokládáme, že 'console' je importována v image_utils.py z config
+        console.print(f"[error]Zdrojová složka nenalezena: {folder_path}[/error]")
+        return image_files
+
+    if recursive:
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                if file.lower().endswith(extensions):
+                    image_files.append(os.path.join(root, file))
+    else:
+        for file in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, file)
+            if os.path.isfile(file_path) and file.lower().endswith(extensions):
+                image_files.append(file_path)
+    
+    search_type = "rekurzivně" if recursive else "nereurzivně"
+    # Předpokládáme, že 'console' je importována v image_utils.py z config
+    console.print(f"Nalezeno {len(image_files)} obrázků ve složce [path]{folder_path}[/path] (hledáno {search_type}).")
     return image_files
 
 def encode_image(image_path: str) -> tuple[str | None, str | None]:
